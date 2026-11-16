@@ -1,0 +1,5 @@
+# Data and model files must stay byte-identical (the pipeline checks raw CSVs by SHA-256)
+*.csv   -text
+*.pkl   binary
+*.xlsx  binary
+*.db    binary

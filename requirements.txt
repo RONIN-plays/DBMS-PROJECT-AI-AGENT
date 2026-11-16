@@ -1,0 +1,19 @@
+# Core: database build, the four agents, controller, chatbot
+pandas>=2.2
+numpy>=2.0
+scikit-learn>=1.6
+xgboost>=3.0
+joblib>=1.4
+
+# Dashboard
+streamlit>=1.40
+plotly>=6.0
+
+# Data cleaning pipeline and its Excel reports (olist-analysis/)
+openpyxl>=3.1
+matplotlib>=3.9
+imbalanced-learn>=0.14
+
+# Optional: lets the chatbot use Claude for questions its built-in router cannot match.
+# The chatbot works fully without it.
+# anthropic
