@@ -18,7 +18,15 @@ SECTIONS = {m.TITLE: m for m in (overview, revenue, customers, demand, net_reven
 st.set_page_config(page_title="E-commerce BI", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""<style>
   .block-container {padding-top: 2rem; max-width: 1400px;}
-  [data-testid="stMetricValue"] {font-size: 1.6rem;}
+  [data-testid="stMetricValue"] {font-size: 1.6rem; color: #0B4F9C; font-weight: 600;}
+  /* corporate blue-and-white look: purely visual, no behaviour change */
+  header[data-testid="stHeader"] {background: #FFFFFF; border-bottom: 3px solid #0B4F9C;}
+  h1, h2, h3 {color: #0B2E59;}
+  h2, h3 {border-bottom: 1px solid #D6E0EE; padding-bottom: .3rem;}
+  [data-testid="stVerticalBlockBorderWrapper"] {box-shadow: 0 1px 3px rgba(11, 46, 89, .08);}
+  [data-testid="stMetricLabel"] {color: #4A5B73; text-transform: uppercase; letter-spacing: .03em; font-size: .78rem;}
+  [data-testid="stSidebar"] h3 {color: #FFFFFF; border-bottom: none;}
+  [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {color: #C9D8EC;}
 </style>""", unsafe_allow_html=True)
 
 with st.sidebar:

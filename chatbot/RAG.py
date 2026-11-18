@@ -43,6 +43,7 @@ KNOWLEDGE_DIR = Path(__file__).resolve().parent / "knowledge"
 FIRST_DAY, LAST_DAY = "2016-09-04", "2018-10-17"        # first / last order in the data
 LAST_COMPLETE_MONTH = "2018-07"                         # August 2018 is complete only to the 19th
 FORECAST_START = "2018-08-20"                           # first forecast day of every agent
+FORECAST_LAST = "2018-11-17"                            # last day a 90-day forecast reaches
 MAX_ROWS = 500
 
 LLM_MODEL = "claude-opus-5-5"
@@ -94,7 +95,7 @@ FUZZY_STOP = {"revenue", "demand", "sales", "category", "categories", "product",
               "declining", "increase", "increasing", "units", "total", "which", "what", "there", "their", "about", "selling"}
 
 REVENUE_W = r"\b(revenue|revenues|sales|turnover|income|earn\w*|made|make|billed|billing|gmv|takings|money)\b"
-PRED_W = r"\b(predict\w*|forecast\w*|expect\w*|project(ed|ion)s?|future|next|upcoming|coming|will|going to|anticipat\w*|estimate[sd]?|outlook)\b"
+PRED_W = r"\b(predict\w*|forecast\w*|expect\w*|project(ed|ion)s?|future|next|upcoming|coming|will|going to|anticipat\w*|estimate[sd]?|outlook|ahead|from now)\b"
 PAST_W = r"\b(was|were|did|sold|historical\w*|history|past|actual\w*|so far|last (month|year|quarter|\d+))\b"
 DEMAND_W = r"\b(demand|units?|stock|inventory|restock\w*|replenish\w*)\b"
 CUSTOMER_W = r"\b(customers?|clients?|buyers?|shoppers?)\b"
@@ -298,9 +299,12 @@ def parse_top_n(low: str, default: int = 10, cap: int = MAX_ROWS) -> tuple[int, 
 
 def parse_horizon_days(low: str) -> tuple[int, str]:
     """Forecast horizon in days (1-90) and a note when the request had to be capped."""
-    m = re.search(r"\b(?:next|coming|following|upcoming)\s+" + NUM + r"\s+(days?|weeks?|months?)\b", low)
+    m = (re.search(r"\b(?:next|coming|following|upcoming|in|within|over|for)\s+(?:the\s+)?(?:next\s+)?" + NUM + r"\s+(days?|weeks?|months?|years?)\b", low)
+         or re.search(r"\b" + NUM + r"\s+(days?|weeks?|months?|years?)\s+(?:ahead|from now|forecast|prediction)\b", low))
     if m:
-        n = to_int(m.group(1)) * {"d": 1, "w": 7, "m": 30}[m.group(2)[0]]
+        n = to_int(m.group(1)) * {"d": 1, "w": 7, "m": 30, "y": 365}[m.group(2)[0]]
+    elif re.search(r"\btomorrow\b|\bnext day\b", low):
+        n = 1
     elif re.search(r"\b(next|coming|following|upcoming) (week)\b", low):
         n = 7
     elif re.search(r"\bfortnight\b", low):
@@ -595,6 +599,13 @@ class Chatbot:
                 ctx.say("No model forecasts order counts, customer counts or reviews. Forecasts exist for revenue, net revenue, "
                         "weekly demand of the 20 largest categories, and customer churn.", self._examples_text())
                 return
+            if re.search(r"\b(predict\w*|forecast\w*|projection\w*|outlook|future|expected)\b|\btomorrow\b|"
+                         r"\bnext\s+(\d+\s+|\w+\s+)?(days?|weeks?|months?|quarter|year)\b", low):
+                self.h_revenue_forecast(low, period, ctx, target="gross")
+                ctx.say("No subject was named, so this is the revenue forecast. Forecasts also exist for net revenue, "
+                        "weekly category demand and customer churn: ask, for example, 'demand forecast for next 4 weeks' or "
+                        "'which customers are likely to churn?'.")
+                return
         if cat and (re.search(DEMAND_W + r"|" + REVENUE_W + r"|\bsold\b|\bsell\w*|perform\w*|how (is|are|did|was)", low) or len(norm.split()) <= 4):
             forecast = bool(re.search(r"\bdemand\b", low)) and not re.search(PAST_W, low) and period is None
             return self.h_demand(low, cat, ctx, forecast=forecast, period=period)
@@ -881,10 +892,14 @@ class Chatbot:
         month_window = None
         if period and period.start > DATA_END:
             end_needed = (pd.Timestamp(period.end) - pd.Timestamp(FORECAST_START)).days + 1
+            if end_needed > 90 and period.start <= FORECAST_LAST:
+                ctx.say(f"Forecasts reach at most 90 days after the data ends ({FORECAST_START} to {FORECAST_LAST}), so only the part of "
+                        f"{period.label} up to {FORECAST_LAST} is forecast below.")
+                end_needed = 90
             if end_needed > 90:
                 ctx.kind = "unavailable"
                 ctx.say(f"There are no orders in {period.label}: the data ends on {LAST_DAY} (complete only to {DATA_END}). Forecasts reach at "
-                        f"most 90 days after the data ends ({FORECAST_START} to 2018-11-17), so {period.label} cannot be forecast either.")
+                        f"most 90 days after the data ends ({FORECAST_START} to {FORECAST_LAST}), so {period.label} cannot be forecast either.")
                 return
             h, cap_note, month_window = end_needed, "", (period.start, period.end)
         if target == "net":
@@ -904,10 +919,10 @@ class Chatbot:
                     "The source extract has only a handful of recorded orders after 2018-08-19, so this period is answered with the forecast.")
             table = part.rename("predicted_value").rename_axis("date").reset_index()
         else:
-            label = "next month" if h == 30 else f"next {h} days"
+            label = "next month" if h == 30 else "next day" if h == 1 else f"next {h} days"
             ctx.say(f"**Forecast (model estimate)** of {what} for the {label}, {res['forecast_start']} to {res['forecast_end']} "
                     f"(the data ends on {DATA_END}): **{money(res['forecast_total'])}**.",
-                    f"The model expects {res['growth_vs_previous_period_pct']:+.1f}% versus the previous {h} days, so the trend is **{res['trend']}**.")
+                    f"The model expects {res['growth_vs_previous_period_pct']:+.1f}% versus the previous {h} day{'s' if h > 1 else ''}, so the trend is **{res['trend']}**.")
             table = fc.rename("predicted_value").rename_axis("date").reset_index()
         ev = res["evaluation"]
         e = ev[(ev.split == "test") & (ev.model == "ensemble")]

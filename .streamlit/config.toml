@@ -1,0 +1,20 @@
+# Corporate blue-and-white theme for the dashboard (streamlit run ui/app.py from the project root).
+[theme]
+base = "light"
+primaryColor = "#0B4F9C"              # corporate navy blue: buttons, sliders, selected items, links
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2F6FB"  # very light blue-grey for inputs, expanders, tables
+textColor = "#1B2A41"
+linkColor = "#0B4F9C"
+borderColor = "#D6E0EE"
+showWidgetBorder = true
+baseRadius = "6px"
+font = "sans-serif"
+headingFont = "sans-serif"
+
+[theme.sidebar]
+backgroundColor = "#0B2E59"           # deep navy sidebar
+secondaryBackgroundColor = "#13427A"
+textColor = "#FFFFFF"
+primaryColor = "#7FB3F0"
+borderColor = "#1E4E86"

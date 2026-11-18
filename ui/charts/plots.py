@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 PALETTE = {
-    "light": dict(actual="#2a78d6", forecast="#eb6834", third="#1baf7a", muted="#898781", band="rgba(235,104,52,0.07)"),
+    "light": dict(actual="#0B4F9C", forecast="#eb6834", third="#1baf7a", muted="#9AA8BC", band="rgba(235,104,52,0.07)"),
     "dark": dict(actual="#3987e5", forecast="#d95926", third="#199e70", muted="#898781", band="rgba(217,89,38,0.12)"),
 }
 ACTUAL, FORECAST = "Actual", "Forecast (model prediction)"

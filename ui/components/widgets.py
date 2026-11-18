@@ -67,6 +67,21 @@ def model_block(result: dict, metric: str, lower_is_better: bool, agent_label: s
     test = ev[ev.split == test_split].copy()
     st.caption(f"{agent_label}: weighted ensemble of five models. Metrics are measured on held-out data "
                f"({test_split}); 'naive' rows are simple baselines for comparison.")
+    cls_metrics = ["Accuracy", "Precision", "Recall", "F1"]
+    ens_row = test[test.model == "ensemble"]
+    if set(cls_metrics) <= set(test.columns) and not ens_row.empty:
+        if "ROC_AUC" in test.columns:       # a true classifier (churn)
+            explain = ("Positive class = customer churns (probability ≥ 0.5). Precision: of customers flagged, the share "
+                       "who really churned. Recall: of customers who churned, the share flagged.")
+        else:                               # a forecaster scored on direction of change
+            explain = ("Scored on direction: positive class = the value goes UP vs the previous period. Accuracy: share of "
+                       "periods where up/down was called correctly. Precision: of predicted rises, the share that were real. "
+                       "Recall: of real rises, the share predicted.")
+        cols = st.columns(4)
+        for col, m in zip(cols, cls_metrics):
+            v = float(ens_row[m].iloc[0])
+            col.metric(f"Ensemble {m}", f"{v:.1%}" if m != "F1" else f"{v:.3f}")
+        st.caption(explain)
     left, right = st.columns(2)
     with left:
         w = pd.DataFrame({"model": list(weights), "weight": list(weights.values())}).sort_values("weight", ascending=False)

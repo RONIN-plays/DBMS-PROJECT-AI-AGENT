@@ -60,6 +60,12 @@ CASES = [
     ("How much revenue will we make next quarter?", P, ["Forecast"], True),
     ("Predict net revenue for the next 30 days", P, ["Forecast", "net revenue"], True),
     ("What is the expected revenue in September 2018?", P, ["Forecast"], True),
+    ("What will be the revenue tomorrow?", P, ["Forecast", "next day", "2018-08-20 to 2018-08-20"], True),
+    ("expected revenue in 2 weeks", P, ["Forecast", "next 14 days"], True),
+    ("revenue 20 days ahead", P, ["Forecast", "next 20 days"], True),
+    ("forecast for next 90 days", P, ["Forecast", "next 90 days", "No subject was named"], True),
+    ("predict revenue for Q4 2018", P, ["Forecast", "2018-10-01 to 2018-11-17", "only the part"], True),
+    ("revenue forecast for next year", P, ["Forecast", "limited to 90 days"], True),
     # declining demand
     ("Which products have declining demand?", P, ["declining"], True),
     ("Which categories are declining?", P, ["declining"], True),

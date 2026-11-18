@@ -17,7 +17,7 @@ from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from .ensemble import (DATA_END, DATA_START, WeightedEnsemble, connect, evaluation_table, fit_all, load_bundle,
+from .ensemble import (DATA_END, DATA_START, WeightedEnsemble, connect, direction_metrics, evaluation_table, fit_all, load_bundle,
                        rank_weights, regression_metrics, regressors, save_bundle, save_evaluation)
 
 AGENT = "demand"
@@ -92,12 +92,14 @@ def train(weeks_ahead: int = 8) -> dict:
         fitted = fit_all(templates, X[tr], y[tr])
         val_each = {n: m.predict(X[va]) for n, m in fitted.items()}
         weights = rank_weights({n: regression_metrics(y[va], p)["RMSE"] for n, p in val_each.items()}, higher_is_better=False)
-        val_table = evaluation_table(y[va], val_each, sum(weights[n] * val_each[n] for n in fitted), "validation", regression_metrics)
+        val_table = evaluation_table(y[va], val_each, sum(weights[n] * val_each[n] for n in fitted), "validation",
+                                     direction_metrics(X.loc[va, "lag_1"].values))
 
         fitted = fit_all(templates, X[~te], y[~te])
         ens = WeightedEnsemble(fitted, weights, "regression")
         naive = {"naive_last_week": X.loc[te, "lag_1"].values, "naive_4_week_average": X.loc[te, "roll_mean_4"].values}
-        test_table = evaluation_table(y[te], ens.predict_each(X[te]), ens.predict(X[te]), "test", regression_metrics, extra=naive)
+        test_table = evaluation_table(y[te], ens.predict_each(X[te]), ens.predict(X[te]), "test",
+                                      direction_metrics(X.loc[te, "lag_1"].values), extra=naive)
 
         rec = recursive_forecast(ens, panel[panel.index < test_start], TEST_WEEKS, codes, origin)
         actual = panel[panel.index >= test_start]

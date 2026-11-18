@@ -100,14 +100,30 @@ def fit_all(templates: dict, X, y) -> dict:
 
 
 # ---------------------------------------------------------------- metrics
-def regression_metrics(y_true, y_pred) -> dict[str, float]:
+def regression_metrics(y_true, y_pred, reference=None) -> dict[str, float]:
+    """Error metrics, plus direction metrics when `reference` (the previous period's actual value) is given.
+
+    Direction metrics treat a forecast as a classifier: positive class = "the value goes UP vs the
+    previous period". Accuracy / Precision / Recall / F1 then say how well the model calls rises and falls.
+    """
     y_true, y_pred = np.asarray(y_true, dtype=float), np.asarray(y_pred, dtype=float)
     nz = y_true > 0
-    return dict(MAE=mean_absolute_error(y_true, y_pred),
-                RMSE=float(np.sqrt(np.mean((y_true - y_pred) ** 2))),
-                R2=r2_score(y_true, y_pred),
-                MAPE=float(np.mean(np.abs(y_true[nz] - y_pred[nz]) / y_true[nz]) * 100),
-                WAPE=float(np.abs(y_true - y_pred).sum() / y_true.sum() * 100))
+    out = dict(MAE=mean_absolute_error(y_true, y_pred),
+               RMSE=float(np.sqrt(np.mean((y_true - y_pred) ** 2))),
+               R2=r2_score(y_true, y_pred),
+               MAPE=float(np.mean(np.abs(y_true[nz] - y_pred[nz]) / y_true[nz]) * 100),
+               WAPE=float(np.abs(y_true - y_pred).sum() / y_true.sum() * 100))
+    if reference is not None:
+        ref = np.asarray(reference, dtype=float)
+        up_true, up_pred = (y_true > ref).astype(int), (y_pred > ref).astype(int)
+        out.update(Accuracy=accuracy_score(up_true, up_pred), Precision=precision_score(up_true, up_pred, zero_division=0),
+                   Recall=recall_score(up_true, up_pred, zero_division=0), F1=f1_score(up_true, up_pred, zero_division=0))
+    return out
+
+
+def direction_metrics(reference):
+    """regression_metrics with a fixed previous-period reference, for use as an evaluation_table metric_fn."""
+    return lambda y_true, y_pred: regression_metrics(y_true, y_pred, reference)
 
 
 def classification_metrics(y_true, prob, threshold: float = 0.5) -> dict[str, float]:
@@ -209,13 +225,15 @@ def train_daily_forecaster(series: pd.Series, val_days: int = 56, test_days: int
     val_each = {n: m.predict(X[va]) for n, m in fitted.items()}
     val_rmse = {n: regression_metrics(y[va], p)["RMSE"] for n, p in val_each.items()}
     weights = rank_weights(val_rmse, higher_is_better=False)
-    val_table = evaluation_table(y[va], val_each, sum(weights[n] * val_each[n] for n in fitted), "validation", regression_metrics)
+    val_table = evaluation_table(y[va], val_each, sum(weights[n] * val_each[n] for n in fitted), "validation",
+                                 direction_metrics(X.loc[va, "lag_1"].values))
 
     # 5) refit on train+validation, compare on the untouched test period (one day ahead)
     fitted = fit_all(templates, X[~te], y[~te])
     ens = WeightedEnsemble(fitted, weights, "regression")
     naive = {"naive_same_weekday_last_week": X.loc[te, "lag_7"].values}
-    test_table = evaluation_table(y[te], ens.predict_each(X[te]), ens.predict(X[te]), "test", regression_metrics, extra=naive)
+    test_table = evaluation_table(y[te], ens.predict_each(X[te]), ens.predict(X[te]), "test",
+                                  direction_metrics(X.loc[te, "lag_1"].values), extra=naive)
 
     # honest multi-step check: forecast the whole test period without seeing any of it
     rec = recursive_daily_forecast(ens, series[series.index < test_start], test_days, origin)
